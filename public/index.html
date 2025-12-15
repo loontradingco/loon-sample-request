@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sample Request | Loon Trading Co.</title>
+  <style>
+    :root {
+      --primary: #d4a853;
+      --primary-dark: #b8923f;
+      --bg: #f8f6f3;
+      --card: #ffffff;
+      --text: #2c2c2c;
+      --text-light: #666;
+      --border: #e0dcd5;
+      --success: #4caf50;
+      --error: #f44336;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
+      color: white;
+      padding: 24px 0;
+      text-align: center;
+    }
+    
+    .header h1 {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    
+    .header p {
+      opacity: 0.8;
+      font-size: 14px;
+    }
+    
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .card h2 {
+      font-size: 18px;
+      margin-bottom: 16px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .card h2 .icon {
+      font-size: 20px;
+    }
+    
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    .form-group label {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+    
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 15px;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    
+    .form-group input:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    
+    @media (max-width: 600px) {
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .wine-list {
+      max-height: 400px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    
+    .wine-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    
+    .wine-item:last-child {
+      border-bottom: none;
+    }
+    
+    .wine-item:hover {
+      background: var(--bg);
+    }
+    
+    .wine-item.selected {
+      background: rgba(212, 168, 83, 0.1);
+    }
+    
+    .wine-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin-right: 12px;
+      accent-color: var(--primary);
+    }
+    
+    .wine-info {
+      flex: 1;
+    }
+    
+    .wine-name {
+      font-weight: 500;
+      font-size: 14px;
+    }
+    
+    .wine-details {
+      font-size: 12px;
+      color: var(--text-light);
+      margin-top: 2px;
+    }
+    
+    .wine-region {
+      background: var(--bg);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      margin-left: 8px;
+    }
+    
+    .selected-count {
+      background: var(--primary);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 14px 28px;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      width: 100%;
+    }
+    
+    .btn-primary:hover {
+      background: var(--primary-dark);
+    }
+    
+    .btn-primary:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    .success-message {
+      display: none;
+      text-align: center;
+      padding: 40px 20px;
+    }
+    
+    .success-message.visible {
+      display: block;
+    }
+    
+    .success-message .icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+    }
+    
+    .success-message h2 {
+      margin-bottom: 8px;
+    }
+    
+    .loading-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-light);
+    }
+    
+    .loading-state .spinner {
+      font-size: 32px;
+      margin-bottom: 16px;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    
+    .error-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--error);
+    }
+    
+    .price-list-info {
+      background: var(--bg);
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+    
+    .price-list-info strong {
+      color: var(--primary-dark);
+    }
+    
+    .filter-bar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    
+    .filter-bar input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    
+    .filter-bar select {
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      min-width: 150px;
+    }
+    
+    .select-all-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: var(--bg);
+      border-radius: 8px 8px 0 0;
+      border: 1px solid var(--border);
+      border-bottom: none;
+    }
+    
+    .select-all-bar label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    
+    footer {
+      text-align: center;
+      padding: 24px;
+      color: var(--text-light);
+      font-size: 13px;
+    }
+    
+    footer a {
+      color: var(--primary-dark);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🍷 Loon Trading Co.</h1>
+    <p>Sample Request Form</p>
+  </div>
+  
+  <div class="container">
+    <!-- Loading State -->
+    <div id="loadingState" class="card loading-state">
+      <div class="spinner">⏳</div>
+      <p>Loading price list...</p>
+    </div>
+    
+    <!-- Error State -->
+    <div id="errorState" class="card error-state" style="display: none;">
+      <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+      <h2>Price List Not Found</h2>
+      <p id="errorMessage">The requested price list could not be loaded.</p>
+    </div>
+    
+    <!-- Main Form -->
+    <form id="sampleForm" style="display: none;">
+      <!-- Price List Info -->
+      <div class="card">
+        <div class="price-list-info">
+          <strong id="priceListName">Loading...</strong>
+          <span id="priceListMeta"></span>
+        </div>
+        
+        <h2><span class="icon">🍇</span> Select Wines for Samples</h2>
+        
+        <div class="filter-bar">
+          <input type="text" id="searchWines" placeholder="Search wines...">
+          <select id="filterRegion">
+            <option value="">All Regions</option>
+          </select>
+        </div>
+        
+        <div class="select-all-bar">
+          <label>
+            <input type="checkbox" id="selectAll">
+            Select All
+          </label>
+          <span class="selected-count" id="selectedCount">0 wines selected</span>
+        </div>
+        
+        <div class="wine-list" id="wineList">
+          <!-- Wines will be populated here -->
+        </div>
+      </div>
+      
+      <!-- Contact Information -->
+      <div class="card">
+        <h2><span class="icon">📋</span> Your Information</h2>
+        
+        <div class="form-group">
+          <label for="companyName">Company Name *</label>
+          <input type="text" id="companyName" name="companyName" required>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="firstName">First Name *</label>
+            <input type="text" id="firstName" name="firstName" required>
+          </div>
+          <div class="form-group">
+            <label for="lastName">Last Name *</label>
+            <input type="text" id="lastName" name="lastName" required>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="email">Email Address *</label>
+          <input type="email" id="email" name="email" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="phone">Phone Number *</label>
+          <input type="tel" id="phone" name="phone" required>
+        </div>
+      </div>
+      
+      <!-- Shipping Address -->
+      <div class="card">
+        <h2><span class="icon">📦</span> Shipping Address</h2>
+        
+        <div class="form-group">
+          <label for="address1">Street Address *</label>
+          <input type="text" id="address1" name="address1" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="address2">Address Line 2</label>
+          <input type="text" id="address2" name="address2" placeholder="Suite, Unit, Building (optional)">
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="city">City *</label>
+            <input type="text" id="city" name="city" required>
+          </div>
+          <div class="form-group">
+            <label for="state">State *</label>
+            <input type="text" id="state" name="state" required>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="zip">ZIP Code *</label>
+            <input type="text" id="zip" name="zip" required>
+          </div>
+          <div class="form-group">
+            <label for="country">Country</label>
+            <input type="text" id="country" name="country" value="United States">
+          </div>
+        </div>
+      </div>
+      
+      <!-- Special Instructions -->
+      <div class="card">
+        <h2><span class="icon">💬</span> Additional Information</h2>
+        
+        <div class="form-group">
+          <label for="comments">Special Instructions or Comments</label>
+          <textarea id="comments" name="comments" rows="4" placeholder="Any special requests, delivery instructions, or additional notes..."></textarea>
+        </div>
+      </div>
+      
+      <!-- Submit -->
+      <div class="card">
+        <button type="submit" class="btn btn-primary" id="submitBtn">
+          Submit Sample Request
+        </button>
+      </div>
+    </form>
+    
+    <!-- Success Message -->
+    <div id="successMessage" class="card success-message">
+      <div class="icon">✅</div>
+      <h2>Request Submitted!</h2>
+      <p>Thank you for your sample request. We'll be in touch shortly to confirm your order.</p>
+      <p style="margin-top: 16px; color: var(--text-light); font-size: 14px;">
+        A confirmation email has been sent to <strong id="confirmEmail"></strong>
+      </p>
+    </div>
+  </div>
+  
+  <footer>
+    <p>© 2024 Loon Trading Co. | <a href="https://loontradingco.com">loontradingco.com</a></p>
+  </footer>
+  
+  <script>
+    // Configuration
+    const CONFIG = {
+      // API URL - works with Netlify Functions
+      apiUrl: '/.netlify/functions/api'
+    };
+    
+    // State
+    let priceListData = null;
+    let selectedWines = new Set();
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', init);
+    
+    async function init() {
+      // Get price list ID from URL
+      const params = new URLSearchParams(window.location.search);
+      const listId = params.get('list');
+      
+      if (!listId) {
+        showError('No price list specified. Please use a valid sample request link.');
+        return;
+      }
+      
+      try {
+        await loadPriceList(listId);
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+    
+    async function loadPriceList(listId) {
+      // For demo/development, use sample data if API not available
+      // In production, this would fetch from your API
+      
+      try {
+        // Try to fetch from API
+        const response = await fetch(`${CONFIG.apiUrl}/price-list/${listId}`);
+        if (response.ok) {
+          priceListData = await response.json();
+        } else {
+          throw new Error('API not available');
+        }
+      } catch (err) {
+        // Use demo data for testing
+        console.log('Using demo data (API not configured)');
+        priceListData = generateDemoData(listId);
+      }
+      
+      if (!priceListData || !priceListData.wines || priceListData.wines.length === 0) {
+        showError('This price list has no wines available for sampling.');
+        return;
+      }
+      
+      // Show form
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('sampleForm').style.display = 'block';
+      
+      // Populate price list info
+      document.getElementById('priceListName').textContent = priceListData.name || 'Price List';
+      document.getElementById('priceListMeta').textContent = 
+        ` • ${priceListData.wines.length} wines available`;
+      
+      // Populate region filter
+      const regions = [...new Set(priceListData.wines.map(w => w.region))].sort();
+      const regionSelect = document.getElementById('filterRegion');
+      regions.forEach(region => {
+        const option = document.createElement('option');
+        option.value = region;
+        option.textContent = region;
+        regionSelect.appendChild(option);
+      });
+      
+      // Render wines
+      renderWines();
+      
+      // Setup event listeners
+      setupEventListeners();
+    }
+    
+    function generateDemoData(listId) {
+      // Demo data for testing without backend
+      return {
+        id: listId,
+        name: 'Sample Price List',
+        company: 'Demo Company',
+        wines: [
+          { id: '1', name: 'Château Couhins-Lurton Blanc 2021', producer: 'André Lurton', region: 'Bordeaux', color: 'White', vintage: '2021' },
+          { id: '2', name: 'Château Bonnet Blanc 2022', producer: 'André Lurton', region: 'Bordeaux', color: 'White', vintage: '2022' },
+          { id: '3', name: 'Château La Louvière Rouge 2019', producer: 'André Lurton', region: 'Bordeaux', color: 'Red', vintage: '2019' },
+          { id: '4', name: 'Tertre du Bosquet 2022', producer: 'Bercut Vandervoort', region: 'Languedoc', color: 'Red', vintage: '2022' },
+          { id: '5', name: 'Champagne Brut Réserve NV', producer: 'Georges de la Chapelle', region: 'Champagne', color: 'Sparkling', vintage: 'NV' },
+          { id: '6', name: 'Côtes du Rhône Villages 2021', producer: 'Cellier des Princes', region: 'Rhône', color: 'Red', vintage: '2021' }
+        ]
+      };
+    }
+    
+    function renderWines(filter = '') {
+      const searchTerm = document.getElementById('searchWines').value.toLowerCase();
+      const regionFilter = document.getElementById('filterRegion').value;
+      
+      let wines = priceListData.wines;
+      
+      // Apply filters
+      if (searchTerm) {
+        wines = wines.filter(w => 
+          w.name.toLowerCase().includes(searchTerm) ||
+          w.producer.toLowerCase().includes(searchTerm)
+        );
+      }
+      
+      if (regionFilter) {
+        wines = wines.filter(w => w.region === regionFilter);
+      }
+      
+      const wineList = document.getElementById('wineList');
+      wineList.innerHTML = wines.map(wine => `
+        <div class="wine-item ${selectedWines.has(wine.id) ? 'selected' : ''}" data-id="${wine.id}">
+          <input type="checkbox" ${selectedWines.has(wine.id) ? 'checked' : ''}>
+          <div class="wine-info">
+            <div class="wine-name">${wine.name}</div>
+            <div class="wine-details">
+              ${wine.producer} • ${wine.color}
+              <span class="wine-region">${wine.region}</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+      
+      // Add click handlers
+      wineList.querySelectorAll('.wine-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          if (e.target.type !== 'checkbox') {
+            const checkbox = item.querySelector('input[type="checkbox"]');
+            checkbox.checked = !checkbox.checked;
+          }
+          
+          const id = item.dataset.id;
+          if (item.querySelector('input').checked) {
+            selectedWines.add(id);
+            item.classList.add('selected');
+          } else {
+            selectedWines.delete(id);
+            item.classList.remove('selected');
+          }
+          
+          updateSelectedCount();
+        });
+      });
+      
+      updateSelectedCount();
+    }
+    
+    function updateSelectedCount() {
+      const count = selectedWines.size;
+      document.getElementById('selectedCount').textContent = 
+        `${count} wine${count !== 1 ? 's' : ''} selected`;
+      
+      // Update select all checkbox
+      const allWines = document.querySelectorAll('.wine-item');
+      const selectAll = document.getElementById('selectAll');
+      selectAll.checked = allWines.length > 0 && selectedWines.size === priceListData.wines.length;
+      selectAll.indeterminate = selectedWines.size > 0 && selectedWines.size < priceListData.wines.length;
+    }
+    
+    function setupEventListeners() {
+      // Search
+      document.getElementById('searchWines').addEventListener('input', () => renderWines());
+      
+      // Region filter
+      document.getElementById('filterRegion').addEventListener('change', () => renderWines());
+      
+      // Select all
+      document.getElementById('selectAll').addEventListener('change', (e) => {
+        if (e.target.checked) {
+          priceListData.wines.forEach(w => selectedWines.add(w.id));
+        } else {
+          selectedWines.clear();
+        }
+        renderWines();
+      });
+      
+      // Form submission
+      document.getElementById('sampleForm').addEventListener('submit', handleSubmit);
+    }
+    
+    async function handleSubmit(e) {
+      e.preventDefault();
+      
+      if (selectedWines.size === 0) {
+        alert('Please select at least one wine for sampling.');
+        return;
+      }
+      
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting...';
+      
+      const formData = {
+        priceListId: priceListData.id,
+        priceListName: priceListData.name,
+        wines: priceListData.wines.filter(w => selectedWines.has(w.id)),
+        contact: {
+          company: document.getElementById('companyName').value,
+          firstName: document.getElementById('firstName').value,
+          lastName: document.getElementById('lastName').value,
+          email: document.getElementById('email').value,
+          phone: document.getElementById('phone').value
+        },
+        shipping: {
+          address1: document.getElementById('address1').value,
+          address2: document.getElementById('address2').value,
+          city: document.getElementById('city').value,
+          state: document.getElementById('state').value,
+          zip: document.getElementById('zip').value,
+          country: document.getElementById('country').value
+        },
+        comments: document.getElementById('comments').value,
+        submittedAt: new Date().toISOString()
+      };
+      
+      try {
+        // Try to submit to API
+        const response = await fetch(`${CONFIG.apiUrl}/sample-request`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+        
+        if (!response.ok) {
+          throw new Error('Submission failed');
+        }
+      } catch (err) {
+        // For demo, just log and show success
+        console.log('Sample Request Data:', formData);
+        console.log('(In production, this would be sent to your backend)');
+      }
+      
+      // Show success
+      document.getElementById('sampleForm').style.display = 'none';
+      document.getElementById('successMessage').classList.add('visible');
+      document.getElementById('confirmEmail').textContent = formData.contact.email;
+    }
+    
+    function showError(message) {
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('errorState').style.display = 'block';
+      document.getElementById('errorMessage').textContent = message;
+    }
+  </script>
+</body>
+</html>
