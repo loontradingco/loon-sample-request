@@ -446,43 +446,38 @@ exports.handler = async (event, context) => {
           console.log('Territory:', territoryName);
           console.log('Target market:', targetMarket);
           
-          // Build filter for Products database
-          const filters = [];
-          
-          // Territory filter
-          if (territoryName) {
-            filters.push({
-              property: 'Available Territories',
-              multi_select: { contains: territoryName }
-            });
-          }
-          
-          // Target market filter
-          if (targetMarket && targetMarket !== 'Traditional Distributor') {
-            filters.push({
-              property: 'Target Market',
-              multi_select: { contains: targetMarket }
-            });
-          }
-          
-          // Query products
+          // Query products - no filters for now, just get all and we'll filter later if needed
           const products = [];
           let hasMore = true;
           let startCursor = undefined;
+          const PRODUCTS_DB_ID = process.env.PRODUCTS_DATABASE_ID || '267a824fc71f8028a369dd5eb02279d2';
           
-          while (hasMore && products.length < 1000) {
+          // Limit to 3 pages (300 products) for speed
+          let pageCount = 0;
+          const maxPages = 3;
+          
+          while (hasMore && pageCount < maxPages) {
             const response = await notionRequest(`/databases/${PRODUCTS_DB_ID}/query`, 'POST', {
-              filter: filters.length > 0 ? { and: filters } : undefined,
               sorts: [
-                { property: 'Region', direction: 'ascending' },
-                { property: 'Internal Name', direction: 'ascending' }
+                { property: 'Region', direction: 'ascending' }
               ],
               start_cursor: startCursor,
               page_size: 100
             });
             
+            pageCount++;
+            
             for (const page of response.results || []) {
               const props = page.properties;
+              
+              // Check if product has this territory in Available Territories
+              const territories = props['Available Territories']?.multi_select?.map(t => t.name) || 
+                                 props['Available Territories']?.formula?.string?.split(',').map(t => t.trim()) || [];
+              
+              // Filter by territory if we have one
+              if (territoryName && !territories.some(t => t.toLowerCase().includes(territoryName.toLowerCase()))) {
+                continue;
+              }
               
               // Get product name from title (Internal Name)
               let productName = '';
