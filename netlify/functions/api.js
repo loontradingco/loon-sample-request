@@ -497,7 +497,14 @@ exports.handler = async (event, context) => {
                 }
               }
               
+              // Log first product's Producer Text structure to debug
+              if (matchedCount <= 1) {
+                console.log('Producer Text type:', props['Producer Text']?.type);
+                console.log('Producer Text value:', JSON.stringify(props['Producer Text']).slice(0, 300));
+              }
+              
               const producer = props['Producer Text']?.rollup?.array?.[0]?.title?.[0]?.plain_text ||
+                              props['Producer Text']?.rollup?.array?.[0]?.rich_text?.[0]?.plain_text ||
                               props['Producer Text']?.formula?.string || 
                               props.Producer?.rollup?.array?.[0]?.title?.[0]?.plain_text || '';
               // Region is a multi-select - get first value
