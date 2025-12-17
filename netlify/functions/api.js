@@ -497,7 +497,9 @@ exports.handler = async (event, context) => {
                 }
               }
               
-              const producer = props['Producer Text']?.formula?.string || '';
+              const producer = props['Producer Text']?.rollup?.array?.[0]?.title?.[0]?.plain_text ||
+                              props['Producer Text']?.formula?.string || 
+                              props.Producer?.rollup?.array?.[0]?.title?.[0]?.plain_text || '';
               // Region is a multi-select - get first value
               const region = props.Region?.multi_select?.[0]?.name || 
                             props.Region?.select?.name || '';
