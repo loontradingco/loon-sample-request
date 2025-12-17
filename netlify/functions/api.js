@@ -498,7 +498,9 @@ exports.handler = async (event, context) => {
               }
               
               const producer = props['Producer Text']?.formula?.string || '';
-              const region = props.Region?.select?.name || '';
+              // Region is a multi-select - get first value
+              const region = props.Region?.multi_select?.[0]?.name || 
+                            props.Region?.select?.name || '';
               const appellation = props.Appellation?.select?.name || '';
               const color = props.Color?.select?.name || '';
               const vintage = props.Vintage?.rich_text?.[0]?.plain_text || '';
