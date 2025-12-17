@@ -461,17 +461,20 @@ exports.handler = async (event, context) => {
             });
             
             pageCount++;
+            console.log('Page', pageCount, '- got', response.results?.length, 'results');
             
             for (const page of response.results || []) {
               const props = page.properties;
               
-              // Check if product has this territory in Available Territories
-              const territories = props['Available Territories']?.multi_select?.map(t => t.name) || 
-                                 props['Available Territories']?.formula?.string?.split(',').map(t => t.trim()) || [];
+              // Available Territories is a formula returning text like "Arizona, California, Texas"
+              const territoriesStr = props['Available Territories']?.formula?.string || '';
               
               // Filter by territory if we have one
-              if (territoryName && !territories.some(t => t.toLowerCase().includes(territoryName.toLowerCase()))) {
-                continue;
+              if (territoryName && territoriesStr) {
+                // Check if territory name appears in the territories string (case-insensitive)
+                if (!territoriesStr.toLowerCase().includes(territoryName.toLowerCase())) {
+                  continue;
+                }
               }
               
               // Get product name from title (Internal Name)
