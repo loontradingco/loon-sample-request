@@ -457,9 +457,9 @@ exports.handler = async (event, context) => {
           let startCursor = undefined;
           let supplierCache = {};  // Cache supplier names to avoid repeated API calls
           
-          // Limit to 9 pages (900 products)
+          // Limit to 5 pages (500 products) to stay within timeout
           let pageCount = 0;
-          const maxPages = 9;
+          const maxPages = 5;
           
           while (hasMore && pageCount < maxPages) {
             const response = await notionRequest(`/databases/${PRODUCTS_DB_ID}/query`, 'POST', {
