@@ -415,10 +415,6 @@ exports.handler = async (event, context) => {
           const targetMarket = exportProps['Target Market']?.select?.name || '';
           const displayName = exportProps['Name']?.title?.[0]?.plain_text || resourceId;
           
-          // Instead of fetching each product by ID (too slow), 
-          // query the Products database with the same filters used for the export
-          const PRODUCTS_DB_ID = process.env.PRODUCTS_DATABASE_ID || '267a824fc71f8028a369dd5eb02279d2';
-          
           // Get territory from the export record
           const territoryRelation = exportProps['Territory']?.relation?.[0]?.id;
           let territoryName = '';
