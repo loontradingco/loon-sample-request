@@ -449,12 +449,6 @@ exports.handler = async (event, context) => {
           // Build filter for Products database
           const filters = [];
           
-          // Active products only
-          filters.push({
-            property: 'Actively Commercialized',
-            select: { equals: 'Active' }
-          });
-          
           // Territory filter
           if (territoryName) {
             filters.push({
