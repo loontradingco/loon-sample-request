@@ -506,6 +506,11 @@ exports.handler = async (event, context) => {
               const vintage = props.Vintage?.rich_text?.[0]?.plain_text || '';
               const fullName = props['Full Product Name']?.formula?.string || productName;
               
+              // Log first few products to debug
+              if (matchedCount <= 3) {
+                console.log('Product:', productName.slice(0, 30), '| Region:', region, '| Producer:', producer.slice(0, 20));
+              }
+              
               if (productName) {
                 products.push({
                   id: page.id,
