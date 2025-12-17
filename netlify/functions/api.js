@@ -435,7 +435,16 @@ exports.handler = async (event, context) => {
                   
                   if (page && page.properties) {
                     const props = page.properties;
-                    const productName = props['Product Name']?.title?.[0]?.plain_text || '';
+                    
+                    // Log property names on first product
+                    if (i === 0) {
+                      console.log('Available properties:', Object.keys(props));
+                    }
+                    
+                    // Try different property names for product name
+                    const productName = props['Product Name']?.title?.[0]?.plain_text || 
+                                       props['Name']?.title?.[0]?.plain_text ||
+                                       props['Internal Name']?.rich_text?.[0]?.plain_text || '';
                     const producer = props.Producer?.rollup?.array?.[0]?.title?.[0]?.plain_text ||
                                     props['Producer Text']?.formula?.string ||
                                     props.Producer?.rich_text?.[0]?.plain_text || '';
@@ -447,7 +456,7 @@ exports.handler = async (event, context) => {
                     const range = props.Range?.rollup?.array?.[0]?.title?.[0]?.plain_text ||
                                  props['Range']?.formula?.string || '';
                     
-                    console.log('Got product:', productName);
+                    console.log('Got product:', productName || '(empty)');
                     
                     if (productName) {
                       return {
