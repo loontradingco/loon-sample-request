@@ -181,17 +181,42 @@ async function getStatesFromNotion() {
     const response = await notionRequest(`/databases/${STATES_DB_ID}/query`, 'POST', {});
     
     const states = response.results.map(page => {
-      // Find the title property dynamically
-      let name = '';
-      for (const [key, value] of Object.entries(page.properties || {})) {
+      const props = page.properties || {};
+      
+      // Find the title property (usually the abbreviation in this database)
+      let titleValue = '';
+      for (const [key, value] of Object.entries(props)) {
         if (value.type === 'title' && value.title?.[0]?.plain_text) {
-          name = value.title[0].plain_text;
+          titleValue = value.title[0].plain_text;
           break;
         }
       }
-      const abbrev = page.properties.Abbreviation?.rich_text?.[0]?.plain_text || 
-                     page.properties.Abbrev?.rich_text?.[0]?.plain_text || '';
-      return { name, abbrev };
+      
+      // Look for full name in various possible property names
+      const fullName = props['Name']?.rich_text?.[0]?.plain_text ||
+                       props['Full Name']?.rich_text?.[0]?.plain_text ||
+                       props['State Name']?.rich_text?.[0]?.plain_text ||
+                       props['State']?.rich_text?.[0]?.plain_text ||
+                       props['Territory']?.rich_text?.[0]?.plain_text ||
+                       props['Region']?.rich_text?.[0]?.plain_text || '';
+      
+      // Look for abbreviation
+      const abbrev = props['Abbreviation']?.rich_text?.[0]?.plain_text || 
+                     props['Abbrev']?.rich_text?.[0]?.plain_text ||
+                     props['Code']?.rich_text?.[0]?.plain_text || '';
+      
+      // If we found a full name, use it; otherwise use the title value
+      // The name should be the longer/more descriptive value
+      let name = fullName || titleValue;
+      let abbreviation = abbrev || (fullName ? titleValue : '');
+      
+      // If name looks like an abbreviation (2-3 chars, all caps), swap with abbrev if available
+      if (name && name.length <= 3 && name === name.toUpperCase() && fullName) {
+        abbreviation = name;
+        name = fullName;
+      }
+      
+      return { name, abbrev: abbreviation };
     }).filter(s => s.name);
     
     // Sort alphabetically
@@ -203,105 +228,137 @@ async function getStatesFromNotion() {
   }
 }
 
-// Create a sample request in Notion
+// Create sample requests in Notion - one entry per producer
 async function createSampleRequestInNotion(data) {
   const SAMPLE_REQUESTS_DB_ID = process.env.SAMPLE_REQUESTS_DB_ID;
   if (!SAMPLE_REQUESTS_DB_ID) {
     throw new Error('SAMPLE_REQUESTS_DB_ID not configured');
   }
   
-  // Format wines list for property (short version)
-  const winesShort = data.wines?.map(w => w.name).join(', ') || '';
-  // Format wines list for page content (detailed version)
-  const winesDetailed = data.wines?.map(w => `• ${w.name} (${w.producer})`).join('\n') || '';
-  
-  // Build properties for Notion page
-  const properties = {
-    'Name': {
-      title: [{ text: { content: `${data.contact?.company} - Sample Request` } }]
-    },
-    'Company': {
-      rich_text: [{ text: { content: data.contact?.company || '' } }]
-    },
-    'First': {
-      rich_text: [{ text: { content: data.contact?.firstName || '' } }]
-    },
-    'Last': {
-      rich_text: [{ text: { content: data.contact?.lastName || '' } }]
-    },
-    'Email': {
-      email: data.contact?.email || null
-    },
-    'Phone': {
-      phone_number: data.contact?.phone || null
-    },
-    'Street': {
-      rich_text: [{ text: { content: data.shipping?.address1 || '' } }]
-    },
-    'City': {
-      rich_text: [{ text: { content: data.shipping?.city || '' } }]
-    },
-    'State/Region': {
-      rich_text: [{ text: { content: data.shipping?.state || '' } }]
-    },
-    'Zip Code': {
-      rich_text: [{ text: { content: data.shipping?.zip || '' } }]
-    },
-    'Country': {
-      rich_text: [{ text: { content: data.shipping?.country || '' } }]
-    },
-    'Wines': {
-      rich_text: [{ text: { content: winesShort.substring(0, 2000) } }]
-    },
-    'Wines Count': {
-      number: data.wines?.length || 0
-    },
-    'Status': {
-      select: { name: 'New' }
-    },
-    'Submitted': {
-      date: { start: new Date().toISOString().split('T')[0] }
+  // Group wines by producer
+  const winesByProducer = {};
+  for (const wine of (data.wines || [])) {
+    const producer = wine.producer || 'Unknown';
+    if (!winesByProducer[producer]) {
+      winesByProducer[producer] = [];
     }
-  };
+    winesByProducer[producer].push(wine);
+  }
   
-  const response = await notionRequest('/pages', 'POST', {
-    parent: { database_id: SAMPLE_REQUESTS_DB_ID },
-    properties,
-    children: [
-      {
-        object: 'block',
-        type: 'heading_2',
-        heading_2: {
-          rich_text: [{ type: 'text', text: { content: 'Wines Requested' } }]
-        }
+  const producers = Object.keys(winesByProducer);
+  console.log(`Creating ${producers.length} sample request entries for ${producers.join(', ')}`);
+  
+  const createdPages = [];
+  
+  // Format date as "YYYYMMDD"
+  const now = new Date();
+  const submissionDate = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+  
+  // Get state from shipping info
+  const state = data.shipping?.state || '';
+  const company = data.contact?.company || '';
+  
+  // Create one Notion entry per producer
+  for (const producer of producers) {
+    const producerWines = winesByProducer[producer];
+    
+    // Format wines list for this producer
+    const winesShort = producerWines.map(w => w.name).join(', ');
+    const winesDetailed = producerWines.map(w => `• ${w.name}`).join('\n');
+    
+    // Build entry name: "Submission Date / State / Company / Producer"
+    const entryName = `${submissionDate} / ${state} / ${company} / ${producer}`;
+    
+    // Build properties for Notion page
+    const properties = {
+      'Name': {
+        title: [{ text: { content: entryName } }]
       },
-      {
-        object: 'block',
-        type: 'paragraph',
-        paragraph: {
-          rich_text: [{ type: 'text', text: { content: winesDetailed } }]
-        }
+      'Company': {
+        rich_text: [{ text: { content: data.contact?.company || '' } }]
       },
-      ...(data.comments ? [
+      'First': {
+        rich_text: [{ text: { content: data.contact?.firstName || '' } }]
+      },
+      'Last': {
+        rich_text: [{ text: { content: data.contact?.lastName || '' } }]
+      },
+      'Email': {
+        email: data.contact?.email || null
+      },
+      'Phone': {
+        phone_number: data.contact?.phone || null
+      },
+      'Street': {
+        rich_text: [{ text: { content: data.shipping?.address1 || '' } }]
+      },
+      'City': {
+        rich_text: [{ text: { content: data.shipping?.city || '' } }]
+      },
+      'State/Region': {
+        rich_text: [{ text: { content: data.shipping?.state || '' } }]
+      },
+      'Zip Code': {
+        rich_text: [{ text: { content: data.shipping?.zip || '' } }]
+      },
+      'Country': {
+        rich_text: [{ text: { content: data.shipping?.country || '' } }]
+      },
+      'Wines': {
+        rich_text: [{ text: { content: winesShort.substring(0, 2000) } }]
+      },
+      'Wines Count': {
+        number: producerWines.length
+      },
+      'Status': {
+        select: { name: 'New' }
+      },
+      'Submitted': {
+        date: { start: new Date().toISOString().split('T')[0] }
+      }
+    };
+    
+    const response = await notionRequest('/pages', 'POST', {
+      parent: { database_id: SAMPLE_REQUESTS_DB_ID },
+      properties,
+      children: [
         {
           object: 'block',
           type: 'heading_2',
           heading_2: {
-            rich_text: [{ type: 'text', text: { content: 'Comments' } }]
+            rich_text: [{ type: 'text', text: { content: 'Wines Requested' } }]
           }
         },
         {
           object: 'block',
           type: 'paragraph',
           paragraph: {
-            rich_text: [{ type: 'text', text: { content: data.comments } }]
+            rich_text: [{ type: 'text', text: { content: winesDetailed } }]
           }
-        }
-      ] : [])
-    ]
-  });
+        },
+        ...(data.comments ? [
+          {
+            object: 'block',
+            type: 'heading_2',
+            heading_2: {
+              rich_text: [{ type: 'text', text: { content: 'Comments' } }]
+            }
+          },
+          {
+            object: 'block',
+            type: 'paragraph',
+            paragraph: {
+              rich_text: [{ type: 'text', text: { content: data.comments } }]
+            }
+          }
+        ] : [])
+      ]
+    });
+    
+    createdPages.push(response);
+  }
   
-  return response;
+  return createdPages;
 }
 
 exports.handler = async (event, context) => {
