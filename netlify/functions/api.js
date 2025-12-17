@@ -497,16 +497,14 @@ exports.handler = async (event, context) => {
                 }
               }
               
-              // Log first product's Producer structure to debug
+              // Log Supplier properties to debug
               if (matchedCount <= 1) {
-                console.log('Producer type:', props.Producer?.type);
-                console.log('Producer value:', JSON.stringify(props.Producer).slice(0, 300));
+                console.log('Supplier relation:', JSON.stringify(props['🏢 Supplier']).slice(0, 200));
+                console.log('Supplier Text:', JSON.stringify(props['Supplier Text']).slice(0, 200));
               }
               
-              // Producer is a relation - we need to get the related page title
-              // Or use Supplier Text if available
+              // Try Supplier Text formula first
               const producer = props['Supplier Text']?.formula?.string ||
-                              props['Producer Text']?.formula?.string || 
                               '';
               // Region is a multi-select - get first value
               const region = props.Region?.multi_select?.[0]?.name || 
