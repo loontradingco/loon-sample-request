@@ -450,7 +450,6 @@ exports.handler = async (event, context) => {
           const products = [];
           let hasMore = true;
           let startCursor = undefined;
-          const PRODUCTS_DB_ID = process.env.PRODUCTS_DATABASE_ID || '267a824fc71f8028a369dd5eb02279d2';
           
           // Limit to 3 pages (300 products) for speed
           let pageCount = 0;
