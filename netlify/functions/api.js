@@ -292,9 +292,16 @@ async function createSampleRequestInNotion(data) {
 exports.handler = async (event, context) => {
   const { httpMethod, path: urlPath, body } = event;
   
-  const pathParts = urlPath.replace('/api/', '').replace('/.netlify/functions/api/', '').split('/');
+  console.log('=== API Request ===');
+  console.log('Path:', urlPath);
+  console.log('Method:', httpMethod);
+  
+  const pathParts = urlPath.replace('/api/', '').replace('/.netlify/functions/api/', '').split('/').filter(Boolean);
   const resource = pathParts[0];
   const resourceId = pathParts[1];
+  
+  console.log('Resource:', resource);
+  console.log('ResourceId:', resourceId);
   
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -408,55 +415,57 @@ exports.handler = async (event, context) => {
           const targetMarket = exportProps['Target Market']?.select?.name || '';
           const displayName = exportProps['Name']?.title?.[0]?.plain_text || resourceId;
           
-          // Fetch products by ID (in batches of 100)
+          // Fetch products by page ID in parallel batches (faster than sequential)
           const products = [];
-          const batchSize = 100;
+          const concurrentLimit = 10; // Fetch 10 at a time
+          const maxProducts = 200; // Limit to first 200 products for performance
           
-          for (let i = 0; i < productIds.length; i += batchSize) {
-            const batchIds = productIds.slice(i, i + batchSize);
+          const limitedIds = productIds.slice(0, maxProducts);
+          
+          for (let i = 0; i < limitedIds.length; i += concurrentLimit) {
+            const batchIds = limitedIds.slice(i, i + concurrentLimit);
             
-            // Build OR filter for batch of product IDs
-            const orFilters = batchIds.map(id => ({
-              property: 'ID',
-              formula: { string: { equals: id } }
-            }));
-            
-            // Fetch by page ID directly
-            for (const pageId of batchIds) {
-              try {
-                const page = await notionRequest(`/pages/${pageId}`, 'GET');
-                
-                if (page && page.properties) {
-                  const props = page.properties;
-                  const productName = props['Product Name']?.title?.[0]?.plain_text || '';
-                  const producer = props.Producer?.rollup?.array?.[0]?.title?.[0]?.plain_text ||
-                                  props['Producer Text']?.formula?.string ||
-                                  props.Producer?.rich_text?.[0]?.plain_text || '';
-                  const region = props.Region?.select?.name || '';
-                  const appellation = props.Appellation?.select?.name || '';
-                  const color = props.Color?.select?.name || '';
-                  const vintage = props.Vintage?.rich_text?.[0]?.plain_text || 
-                                 props.Vintage?.number?.toString() || '';
-                  const range = props.Range?.rollup?.array?.[0]?.title?.[0]?.plain_text ||
-                               props['Range']?.formula?.string || '';
+            const batchResults = await Promise.all(
+              batchIds.map(async (pageId) => {
+                try {
+                  const page = await notionRequest(`/pages/${pageId}`, 'GET');
                   
-                  if (productName) {
-                    products.push({
-                      id: page.id,
-                      name: productName,
-                      producer: producer,
-                      region: region,
-                      appellation: appellation,
-                      range: range,
-                      color: color,
-                      vintage: vintage
-                    });
+                  if (page && page.properties) {
+                    const props = page.properties;
+                    const productName = props['Product Name']?.title?.[0]?.plain_text || '';
+                    const producer = props.Producer?.rollup?.array?.[0]?.title?.[0]?.plain_text ||
+                                    props['Producer Text']?.formula?.string ||
+                                    props.Producer?.rich_text?.[0]?.plain_text || '';
+                    const region = props.Region?.select?.name || '';
+                    const appellation = props.Appellation?.select?.name || '';
+                    const color = props.Color?.select?.name || '';
+                    const vintage = props.Vintage?.rich_text?.[0]?.plain_text || 
+                                   props.Vintage?.number?.toString() || '';
+                    const range = props.Range?.rollup?.array?.[0]?.title?.[0]?.plain_text ||
+                                 props['Range']?.formula?.string || '';
+                    
+                    if (productName) {
+                      return {
+                        id: page.id,
+                        name: productName,
+                        producer: producer,
+                        region: region,
+                        appellation: appellation,
+                        range: range,
+                        color: color,
+                        vintage: vintage
+                      };
+                    }
                   }
+                  return null;
+                } catch (pageErr) {
+                  console.log('Could not fetch product:', pageId);
+                  return null;
                 }
-              } catch (pageErr) {
-                console.log('Could not fetch product:', pageId, pageErr.message);
-              }
-            }
+              })
+            );
+            
+            products.push(...batchResults.filter(Boolean));
           }
           
           console.log('Fetched', products.length, 'products');
