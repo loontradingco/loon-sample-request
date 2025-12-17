@@ -457,17 +457,20 @@ exports.handler = async (event, context) => {
           console.log('Territory:', territoryName);
           console.log('Target market:', targetMarket);
           
-          // Query products - no filters for now, just get all and we'll filter later if needed
+          // Convert product IDs to a Set for fast lookup
+          const productIdSet = new Set(productIds.map(id => id.replace(/-/g, '').toLowerCase()));
+          
+          // Query products - we'll filter to only include products from the export
           const products = [];
           let hasMore = true;
           let startCursor = undefined;
           let supplierCache = {};  // Cache supplier names to avoid repeated API calls
           
-          // Limit to 5 pages (500 products) - may take up to 20 seconds
+          // Query more pages since we're filtering down to specific IDs
           let pageCount = 0;
-          const maxPages = 5;
+          const maxPages = 10;
           
-          while (hasMore && pageCount < maxPages) {
+          while (hasMore && pageCount < maxPages && products.length < productIds.length) {
             const response = await notionRequest(`/databases/${PRODUCTS_DB_ID}/query`, 'POST', {
               sorts: [
                 { property: 'Region', direction: 'ascending' }
@@ -479,18 +482,13 @@ exports.handler = async (event, context) => {
             pageCount++;
             
             for (const page of response.results || []) {
-              const props = page.properties;
-              
-              // Available Territories is a formula returning text like "Arizona, California, Texas"
-              const territoriesStr = props['Available Territories']?.formula?.string || '';
-              
-              // Filter by territory if we have one
-              if (territoryName && territoriesStr) {
-                // Check if territory name appears in the territories string (case-insensitive)
-                if (!territoriesStr.toLowerCase().includes(territoryName.toLowerCase())) {
-                  continue;
-                }
+              // Check if this product is in our exported list
+              const pageIdNormalized = page.id.replace(/-/g, '').toLowerCase();
+              if (!productIdSet.has(pageIdNormalized)) {
+                continue; // Skip products not in the export
               }
+              
+              const props = page.properties;
               
               // Get product name from title (Internal Name)
               let productName = '';
