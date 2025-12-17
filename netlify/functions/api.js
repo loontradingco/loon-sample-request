@@ -463,19 +463,30 @@ exports.handler = async (event, context) => {
             pageCount++;
             console.log('Page', pageCount, '- got', response.results?.length, 'results');
             
+            let matchedCount = 0;
+            let skippedCount = 0;
+            
             for (const page of response.results || []) {
               const props = page.properties;
               
               // Available Territories is a formula returning text like "Arizona, California, Texas"
               const territoriesStr = props['Available Territories']?.formula?.string || '';
               
+              // Log first few to see what we're getting
+              if (pageCount === 1 && (matchedCount + skippedCount) < 3) {
+                console.log('Product territories:', territoriesStr.slice(0, 100));
+              }
+              
               // Filter by territory if we have one
               if (territoryName && territoriesStr) {
                 // Check if territory name appears in the territories string (case-insensitive)
                 if (!territoriesStr.toLowerCase().includes(territoryName.toLowerCase())) {
+                  skippedCount++;
                   continue;
                 }
               }
+              
+              matchedCount++;
               
               // Get product name from title (Internal Name)
               let productName = '';
