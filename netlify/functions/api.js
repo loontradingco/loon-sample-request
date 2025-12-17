@@ -40,7 +40,6 @@ function buildInternalEmail(data, notionPageId) {
         <div class="header">
           <h1>New Sample Request</h1>
           <p>From ${data.contact?.company}</p>
-          <div class="tagline">Relationships. Strategy. Integrity.</div>
         </div>
         <div class="content">
           <h2>Contact Information</h2>
@@ -99,11 +98,10 @@ function buildConfirmationEmail(data) {
         <div class="header">
           <h1>Sample Request Received</h1>
           <p>Thank you for your interest</p>
-          <div class="tagline">Relationships. Strategy. Integrity.</div>
         </div>
         <div class="content">
-          <p>Dear ${data.contact?.firstName},</p>
-          <p>Thank you for submitting your sample request. We have received your request and will process it shortly.</p>
+          <p>Hello ${data.contact?.firstName},</p>
+          <p>Thank you for sending your sample request. We have received your request and will process soon.</p>
           
           <h2>Your Request Summary</h2>
           <p class="label">Company</p>
@@ -126,9 +124,20 @@ function buildConfirmationEmail(data) {
           
           <p style="margin-top: 24px;">If you have any questions, please don't hesitate to contact us at <a href="mailto:office@loontradingco.com">office@loontradingco.com</a>.</p>
           
-          <p>Best regards,<br><strong>Loon Trading Co.</strong></p>
+          <p>Thank you,<br><strong>Loon Trading Co.</strong></p>
         </div>
         <div class="footer">
+          <div class="social-links" style="margin-bottom: 16px;">
+            <a href="https://www.linkedin.com/company/loontradingcompany/" style="display: inline-block; margin: 0 8px;">
+              <img src="https://cdn-icons-png.flaticon.com/24/174/174857.png" alt="LinkedIn" width="24" height="24" style="vertical-align: middle;">
+            </a>
+            <a href="https://www.instagram.com/loontradingco/" style="display: inline-block; margin: 0 8px;">
+              <img src="https://cdn-icons-png.flaticon.com/24/174/174855.png" alt="Instagram" width="24" height="24" style="vertical-align: middle;">
+            </a>
+            <a href="https://www.youtube.com/@loontradingcompany" style="display: inline-block; margin: 0 8px;">
+              <img src="https://cdn-icons-png.flaticon.com/24/174/174883.png" alt="YouTube" width="24" height="24" style="vertical-align: middle;">
+            </a>
+          </div>
           <p><a href="https://www.loontradingco.com">www.loontradingco.com</a></p>
           <p style="margin-top: 8px;">© ${new Date().getFullYear()} Loon Trading Co.</p>
         </div>
@@ -457,7 +466,7 @@ exports.handler = async (event, context) => {
           let startCursor = undefined;
           let supplierCache = {};  // Cache supplier names to avoid repeated API calls
           
-          // Limit to 5 pages (500 products) to stay within timeout
+          // Limit to 5 pages (500 products) - may take up to 20 seconds
           let pageCount = 0;
           const maxPages = 5;
           
