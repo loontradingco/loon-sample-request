@@ -423,6 +423,22 @@ exports.handler = async (event, context) => {
           console.log('Fetching', limitedIds.length, 'products');
           console.log('Sample ID:', limitedIds[0]);
           
+          // Fetch just the first one to see properties
+          try {
+            const firstPage = await notionRequest(`/pages/${limitedIds[0]}`, 'GET');
+            console.log('First page properties:', JSON.stringify(Object.keys(firstPage.properties || {})));
+            
+            // Log the title property specifically
+            const props = firstPage.properties;
+            for (const [key, value] of Object.entries(props)) {
+              if (value.type === 'title') {
+                console.log('Title property found:', key, '=', value.title?.[0]?.plain_text);
+              }
+            }
+          } catch (err) {
+            console.log('Error fetching first page:', err.message);
+          }
+          
           // Fetch sequentially in small groups to avoid rate limits
           for (let i = 0; i < limitedIds.length; i += 5) {
             const batchIds = limitedIds.slice(i, i + 5);
@@ -436,15 +452,15 @@ exports.handler = async (event, context) => {
                   if (page && page.properties) {
                     const props = page.properties;
                     
-                    // Log property names on first product
-                    if (i === 0) {
-                      console.log('Available properties:', Object.keys(props));
+                    // Find the title property dynamically
+                    let productName = '';
+                    for (const [key, value] of Object.entries(props)) {
+                      if (value.type === 'title' && value.title?.[0]?.plain_text) {
+                        productName = value.title[0].plain_text;
+                        break;
+                      }
                     }
                     
-                    // Try different property names for product name
-                    const productName = props['Product Name']?.title?.[0]?.plain_text || 
-                                       props['Name']?.title?.[0]?.plain_text ||
-                                       props['Internal Name']?.rich_text?.[0]?.plain_text || '';
                     const producer = props.Producer?.rollup?.array?.[0]?.title?.[0]?.plain_text ||
                                     props['Producer Text']?.formula?.string ||
                                     props.Producer?.rich_text?.[0]?.plain_text || '';
@@ -455,8 +471,6 @@ exports.handler = async (event, context) => {
                                    props.Vintage?.number?.toString() || '';
                     const range = props.Range?.rollup?.array?.[0]?.title?.[0]?.plain_text ||
                                  props['Range']?.formula?.string || '';
-                    
-                    console.log('Got product:', productName || '(empty)');
                     
                     if (productName) {
                       return {
