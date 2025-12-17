@@ -11,9 +11,9 @@ const emailStyles = `
   <style>
     body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 0; background: #faf9f7; }
     .container { max-width: 600px; margin: 0 auto; background: #ffffff; }
-    .header { background: #1a1a1a; color: #ffffff; padding: 32px; text-align: center; }
-    .header h1 { font-family: Georgia, serif; font-size: 24px; font-weight: 400; margin: 0 0 8px 0; letter-spacing: 1px; }
-    .header p { font-size: 14px; color: rgba(255,255,255,0.7); margin: 0; }
+    .header { background: #ccedd9; color: #000000; padding: 32px; text-align: center; }
+    .header h1 { font-family: Georgia, serif; font-size: 24px; font-weight: 400; margin: 0 0 8px 0; letter-spacing: 1px; color: #000000; }
+    .header p { font-size: 14px; color: rgba(0,0,0,0.7); margin: 0; }
     .content { padding: 32px; }
     .content h2 { font-family: Georgia, serif; font-size: 20px; font-weight: 400; color: #1a1a1a; margin: 0 0 16px 0; border-bottom: 1px solid #e5e2dd; padding-bottom: 12px; }
     .content p { font-size: 15px; line-height: 1.6; color: #333; margin: 8px 0; }
@@ -55,7 +55,6 @@ function buildInternalEmail(data, notionPageId) {
           <h2>Shipping Address</h2>
           <p>
             ${data.shipping?.address1}<br>
-            ${data.shipping?.address2 ? data.shipping.address2 + '<br>' : ''}
             ${data.shipping?.city}, ${data.shipping?.state} ${data.shipping?.zip}<br>
             ${data.shipping?.country}
           </p>
@@ -97,7 +96,6 @@ function buildConfirmationEmail(data) {
       <div class="container">
         <div class="header">
           <h1>Sample Request Received</h1>
-          <p>Thank you for your interest</p>
         </div>
         <div class="content">
           <p>Hello ${data.contact?.firstName},</p>
@@ -110,7 +108,6 @@ function buildConfirmationEmail(data) {
           <p class="label">Shipping To</p>
           <p>
             ${data.shipping?.address1}<br>
-            ${data.shipping?.address2 ? data.shipping.address2 + '<br>' : ''}
             ${data.shipping?.city}, ${data.shipping?.state} ${data.shipping?.zip}<br>
             ${data.shipping?.country}
           </p>
@@ -239,7 +236,7 @@ async function createSampleRequestInNotion(data) {
       phone_number: data.contact?.phone || null
     },
     'Street': {
-      rich_text: [{ text: { content: data.shipping?.address1 + (data.shipping?.address2 ? ', ' + data.shipping.address2 : '') } }]
+      rich_text: [{ text: { content: data.shipping?.address1 || '' } }]
     },
     'City': {
       rich_text: [{ text: { content: data.shipping?.city || '' } }]
