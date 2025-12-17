@@ -415,16 +415,18 @@ exports.handler = async (event, context) => {
           const targetMarket = exportProps['Target Market']?.select?.name || '';
           const displayName = exportProps['Name']?.title?.[0]?.plain_text || resourceId;
           
-          // Fetch products by page ID in parallel batches (faster than sequential)
+          // Fetch products by page ID - small batches to avoid rate limits
           const products = [];
-          const concurrentLimit = 10; // Fetch 10 at a time
-          const maxProducts = 200; // Limit to first 200 products for performance
+          const maxProducts = 50; // Start with just 50 for testing
           
           const limitedIds = productIds.slice(0, maxProducts);
-          console.log('Sample ID format:', limitedIds[0]);
+          console.log('Fetching', limitedIds.length, 'products');
+          console.log('Sample ID:', limitedIds[0]);
           
-          for (let i = 0; i < limitedIds.length; i += concurrentLimit) {
-            const batchIds = limitedIds.slice(i, i + concurrentLimit);
+          // Fetch sequentially in small groups to avoid rate limits
+          for (let i = 0; i < limitedIds.length; i += 5) {
+            const batchIds = limitedIds.slice(i, i + 5);
+            console.log('Fetching batch', i/5 + 1);
             
             const batchResults = await Promise.all(
               batchIds.map(async (pageId) => {
@@ -445,6 +447,8 @@ exports.handler = async (event, context) => {
                     const range = props.Range?.rollup?.array?.[0]?.title?.[0]?.plain_text ||
                                  props['Range']?.formula?.string || '';
                     
+                    console.log('Got product:', productName);
+                    
                     if (productName) {
                       return {
                         id: page.id,
@@ -460,22 +464,16 @@ exports.handler = async (event, context) => {
                   }
                   return null;
                 } catch (pageErr) {
-                  console.log('Fetch error for', pageId, ':', pageErr.message);
+                  console.log('ERROR fetching', pageId, ':', pageErr.message);
                   return null;
                 }
               })
             );
             
             products.push(...batchResults.filter(Boolean));
-            
-            // Break early if we have enough
-            if (products.length >= 100) {
-              console.log('Got enough products, stopping early');
-              break;
-            }
           }
           
-          console.log('Fetched', products.length, 'products');
+          console.log('Total fetched:', products.length, 'products');
           
           // Organize by region, then producer
           const organized = {};
