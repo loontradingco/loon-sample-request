@@ -216,11 +216,32 @@ async function getStatesFromNotion() {
         name = fullName;
       }
       
-      return { name, abbrev: abbreviation };
-    }).filter(s => s.name);
+      // Determine country based on abbreviation pattern
+      let country = 'United States'; // Default
+      if (abbreviation.startsWith('Canada-') || name.startsWith('Canada-')) {
+        country = 'Canada';
+      } else if (name === 'Mexico' || abbreviation === 'MX') {
+        country = 'Mexico';
+      } else if (['Bermuda', 'Brazil', 'Puerto Rico', 'US Virgin Islands', 'Guam'].includes(name)) {
+        country = 'Other';
+      }
+      
+      return { name, abbrev: abbreviation, country };
+    }).filter(s => {
+      // Filter out entries without a name
+      if (!s.name) return false;
+      // Filter out "National" and "Canada" (these are not valid shipping destinations)
+      const nameLower = s.name.toLowerCase();
+      if (nameLower === 'national' || nameLower === 'canada') return false;
+      return true;
+    });
     
     // Sort alphabetically
     states.sort((a, b) => a.name.localeCompare(b.name));
+    
+    // Add "Other" as the last option
+    states.push({ name: 'Other', abbrev: '', country: 'Other' });
+    
     return states;
   } catch (err) {
     console.error('Failed to fetch states:', err);
