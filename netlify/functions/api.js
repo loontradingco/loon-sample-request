@@ -446,6 +446,7 @@ exports.handler = async (event, context) => {
           const products = [];
           let hasMore = true;
           let startCursor = undefined;
+          let supplierCache = {};  // Cache supplier names to avoid repeated API calls
           
           // Limit to 3 pages (300 products) for speed
           let pageCount = 0;
@@ -497,15 +498,33 @@ exports.handler = async (event, context) => {
                 }
               }
               
-              // Log Supplier properties to debug
-              if (matchedCount <= 1) {
-                console.log('Supplier relation:', JSON.stringify(props['🏢 Supplier']).slice(0, 200));
-                console.log('Supplier Text:', JSON.stringify(props['Supplier Text']).slice(0, 200));
+              // Get supplier name from relation
+              let producer = '';
+              const supplierRelation = props['🏢 Supplier']?.relation;
+              if (supplierRelation && supplierRelation.length > 0) {
+                const supplierId = supplierRelation[0].id;
+                // Cache supplier names to avoid repeated fetches
+                if (!supplierCache) {
+                  supplierCache = {};
+                }
+                if (supplierCache[supplierId]) {
+                  producer = supplierCache[supplierId];
+                } else {
+                  try {
+                    const supplierPage = await notionRequest(`/pages/${supplierId}`, 'GET');
+                    // Find title property
+                    for (const [key, value] of Object.entries(supplierPage.properties || {})) {
+                      if (value.type === 'title' && value.title?.[0]?.plain_text) {
+                        producer = value.title[0].plain_text;
+                        supplierCache[supplierId] = producer;
+                        break;
+                      }
+                    }
+                  } catch (e) {
+                    // Ignore errors fetching supplier
+                  }
+                }
               }
-              
-              // Try Supplier Text formula first
-              const producer = props['Supplier Text']?.formula?.string ||
-                              '';
               // Region is a multi-select - get first value
               const region = props.Region?.multi_select?.[0]?.name || 
                             props.Region?.select?.name || '';
