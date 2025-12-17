@@ -411,7 +411,20 @@ exports.handler = async (event, context) => {
           const productIds = productIdsStr.split(',').map(id => id.trim()).filter(Boolean);
           
           console.log('Found', productIds.length, 'product IDs');
-          console.log('First few IDs:', productIds.slice(0, 3));
+          
+          // Get the product data JSON from the export record
+          const productDataArray = exportProps['Product Data']?.rich_text || [];
+          const productDataStr = productDataArray.map(rt => rt.plain_text).join('');
+          let productData = {};
+          
+          if (productDataStr) {
+            try {
+              productData = JSON.parse(productDataStr);
+              console.log('Found product data for', Object.keys(productData).length, 'products');
+            } catch (e) {
+              console.log('Could not parse product data JSON:', e.message);
+            }
+          }
           
           if (productIds.length === 0) {
             return {
@@ -430,124 +443,117 @@ exports.handler = async (event, context) => {
           const targetMarket = exportProps['Target Market']?.select?.name || '';
           const displayName = exportProps['Name']?.title?.[0]?.plain_text || resourceId;
           
-          // Get territory from the export record
-          const territoryRelation = exportProps['Territory']?.relation?.[0]?.id;
-          let territoryName = '';
-          
-          if (territoryRelation) {
-            try {
-              const territoryPage = await notionRequest(`/pages/${territoryRelation}`, 'GET');
-              // Find title property
-              for (const [key, value] of Object.entries(territoryPage.properties || {})) {
-                if (value.type === 'title' && value.title?.[0]?.plain_text) {
-                  territoryName = value.title[0].plain_text;
-                  break;
-                }
-              }
-            } catch (e) {
-              console.log('Could not fetch territory name');
-            }
-          }
-          
-          // If no territory from relation, try to parse from display name
-          if (!territoryName && displayName) {
-            territoryName = displayName.split(' - ')[0];
-          }
-          
-          console.log('Territory:', territoryName);
+          console.log('Display name:', displayName);
           console.log('Target market:', targetMarket);
           
-          // Convert product IDs to a Set for fast lookup
-          const productIdSet = new Set(productIds.map(id => id.replace(/-/g, '').toLowerCase()));
-          
-          // Query products - we'll filter to only include products from the export
+          // Build products array from product data
           const products = [];
-          let hasMore = true;
-          let startCursor = undefined;
-          let supplierCache = {};  // Cache supplier names to avoid repeated API calls
           
-          // Query more pages since we're filtering down to specific IDs
-          let pageCount = 0;
-          const maxPages = 10;
-          
-          while (hasMore && pageCount < maxPages && products.length < productIds.length) {
-            const response = await notionRequest(`/databases/${PRODUCTS_DB_ID}/query`, 'POST', {
-              sorts: [
-                { property: 'Region', direction: 'ascending' }
-              ],
-              start_cursor: startCursor,
-              page_size: 100
-            });
+          // If we have product data, use it directly (fast path)
+          if (Object.keys(productData).length > 0) {
+            console.log('Using cached product data (fast path)');
             
-            pageCount++;
-            
-            for (const page of response.results || []) {
-              // Check if this product is in our exported list
-              const pageIdNormalized = page.id.replace(/-/g, '').toLowerCase();
-              if (!productIdSet.has(pageIdNormalized)) {
-                continue; // Skip products not in the export
-              }
+            for (const productId of productIds) {
+              // Normalize ID for lookup
+              const normalizedId = productId.replace(/-/g, '');
+              const data = productData[productId] || productData[normalizedId];
               
-              const props = page.properties;
-              
-              // Get product name from title (Internal Name)
-              let productName = '';
-              for (const [key, value] of Object.entries(props)) {
-                if (value.type === 'title' && value.title?.[0]?.plain_text) {
-                  productName = value.title[0].plain_text;
-                  break;
-                }
-              }
-              
-              // Get supplier name from relation
-              let producer = '';
-              const supplierRelation = props['🏢 Supplier']?.relation;
-              if (supplierRelation && supplierRelation.length > 0) {
-                const supplierId = supplierRelation[0].id;
-                if (supplierCache[supplierId]) {
-                  producer = supplierCache[supplierId];
-                } else {
-                  try {
-                    const supplierPage = await notionRequest(`/pages/${supplierId}`, 'GET');
-                    // Find title property
-                    for (const [key, value] of Object.entries(supplierPage.properties || {})) {
-                      if (value.type === 'title' && value.title?.[0]?.plain_text) {
-                        producer = value.title[0].plain_text;
-                        supplierCache[supplierId] = producer;
-                        break;
-                      }
-                    }
-                  } catch (e) {
-                    // Ignore errors fetching supplier
-                  }
-                }
-              }
-              // Region is a multi-select - get first value
-              const region = props.Region?.multi_select?.[0]?.name || 
-                            props.Region?.select?.name || '';
-              const appellation = props.Appellation?.select?.name || '';
-              const color = props.Color?.select?.name || '';
-              const vintage = props.Vintage?.rich_text?.[0]?.plain_text || '';
-              const fullName = props['Full Product Name']?.formula?.string || productName;
-              
-              if (productName) {
+              if (data) {
                 products.push({
-                  id: page.id,
-                  name: fullName || productName,
-                  producer: producer,
-                  region: region,
-                  appellation: appellation,
-                  color: color,
-                  vintage: vintage
+                  id: productId,
+                  name: data.name || '',
+                  producer: data.producer || '',
+                  region: data.region || '',
+                  color: data.color || '',
+                  vintage: data.vintage || ''
                 });
               }
             }
             
-            hasMore = response.has_more;
-            startCursor = response.next_cursor;
+            console.log('Loaded', products.length, 'products from cached data');
+          } else {
+            // Fallback: Query Products database (slow path - for older exports without product data)
+            console.log('No cached product data, falling back to database query (slow)');
+            
+            const productIdSet = new Set(productIds.map(id => id.replace(/-/g, '').toLowerCase()));
+            let hasMore = true;
+            let startCursor = undefined;
+            let supplierCache = {};
+            let pageCount = 0;
+            const maxPages = 10;
+            
+            while (hasMore && pageCount < maxPages && products.length < productIds.length) {
+              const response = await notionRequest(`/databases/${PRODUCTS_DB_ID}/query`, 'POST', {
+                sorts: [
+                  { property: 'Region', direction: 'ascending' }
+                ],
+                start_cursor: startCursor,
+                page_size: 100
+              });
+              
+              pageCount++;
+              
+              for (const page of response.results || []) {
+                const pageIdNormalized = page.id.replace(/-/g, '').toLowerCase();
+                if (!productIdSet.has(pageIdNormalized)) {
+                  continue;
+                }
+                
+                const props = page.properties;
+                
+                let productName = '';
+                for (const [key, value] of Object.entries(props)) {
+                  if (value.type === 'title' && value.title?.[0]?.plain_text) {
+                    productName = value.title[0].plain_text;
+                    break;
+                  }
+                }
+                
+                let producer = '';
+                const supplierRelation = props['🏢 Supplier']?.relation;
+                if (supplierRelation && supplierRelation.length > 0) {
+                  const supplierId = supplierRelation[0].id;
+                  if (supplierCache[supplierId]) {
+                    producer = supplierCache[supplierId];
+                  } else {
+                    try {
+                      const supplierPage = await notionRequest(`/pages/${supplierId}`, 'GET');
+                      for (const [key, value] of Object.entries(supplierPage.properties || {})) {
+                        if (value.type === 'title' && value.title?.[0]?.plain_text) {
+                          producer = value.title[0].plain_text;
+                          supplierCache[supplierId] = producer;
+                          break;
+                        }
+                      }
+                    } catch (e) {
+                      // Ignore errors
+                    }
+                  }
+                }
+                
+                const region = props.Region?.multi_select?.[0]?.name || props.Region?.select?.name || '';
+                const color = props.Color?.select?.name || '';
+                const vintage = props.Vintage?.rich_text?.[0]?.plain_text || '';
+                const fullName = props['Full Product Name']?.formula?.string || productName;
+                
+                if (productName) {
+                  products.push({
+                    id: page.id,
+                    name: fullName || productName,
+                    producer: producer,
+                    region: region,
+                    color: color,
+                    vintage: vintage
+                  });
+                }
+              }
+              
+              hasMore = response.has_more;
+              startCursor = response.next_cursor;
+            }
           }
           
-          console.log('Total fetched:', products.length, 'products');
+          console.log('Total products:', products.length);
           
           // Organize by region, then producer
           const organized = {};
