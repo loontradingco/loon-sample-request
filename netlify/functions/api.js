@@ -172,16 +172,25 @@ async function getStatesFromNotion() {
   }
   
   try {
-    const response = await notionRequest(`/databases/${STATES_DB_ID}/query`, 'POST', {
-      sorts: [{ property: 'Name', direction: 'ascending' }]
-    });
+    const response = await notionRequest(`/databases/${STATES_DB_ID}/query`, 'POST', {});
     
-    return response.results.map(page => {
-      const name = page.properties.Name?.title?.[0]?.plain_text || '';
+    const states = response.results.map(page => {
+      // Find the title property dynamically
+      let name = '';
+      for (const [key, value] of Object.entries(page.properties || {})) {
+        if (value.type === 'title' && value.title?.[0]?.plain_text) {
+          name = value.title[0].plain_text;
+          break;
+        }
+      }
       const abbrev = page.properties.Abbreviation?.rich_text?.[0]?.plain_text || 
                      page.properties.Abbrev?.rich_text?.[0]?.plain_text || '';
       return { name, abbrev };
     }).filter(s => s.name);
+    
+    // Sort alphabetically
+    states.sort((a, b) => a.name.localeCompare(b.name));
+    return states;
   } catch (err) {
     console.error('Failed to fetch states:', err);
     return null;
@@ -448,9 +457,9 @@ exports.handler = async (event, context) => {
           let startCursor = undefined;
           let supplierCache = {};  // Cache supplier names to avoid repeated API calls
           
-          // Limit to 3 pages (300 products) for speed
+          // Limit to 9 pages (900 products)
           let pageCount = 0;
-          const maxPages = 3;
+          const maxPages = 9;
           
           while (hasMore && pageCount < maxPages) {
             const response = await notionRequest(`/databases/${PRODUCTS_DB_ID}/query`, 'POST', {
@@ -462,10 +471,6 @@ exports.handler = async (event, context) => {
             });
             
             pageCount++;
-            console.log('Page', pageCount, '- got', response.results?.length, 'results');
-            
-            let matchedCount = 0;
-            let skippedCount = 0;
             
             for (const page of response.results || []) {
               const props = page.properties;
@@ -473,21 +478,13 @@ exports.handler = async (event, context) => {
               // Available Territories is a formula returning text like "Arizona, California, Texas"
               const territoriesStr = props['Available Territories']?.formula?.string || '';
               
-              // Log first few to see what we're getting
-              if (pageCount === 1 && (matchedCount + skippedCount) < 3) {
-                console.log('Product territories:', territoriesStr.slice(0, 100));
-              }
-              
               // Filter by territory if we have one
               if (territoryName && territoriesStr) {
                 // Check if territory name appears in the territories string (case-insensitive)
                 if (!territoriesStr.toLowerCase().includes(territoryName.toLowerCase())) {
-                  skippedCount++;
                   continue;
                 }
               }
-              
-              matchedCount++;
               
               // Get product name from title (Internal Name)
               let productName = '';
@@ -503,10 +500,6 @@ exports.handler = async (event, context) => {
               const supplierRelation = props['🏢 Supplier']?.relation;
               if (supplierRelation && supplierRelation.length > 0) {
                 const supplierId = supplierRelation[0].id;
-                // Cache supplier names to avoid repeated fetches
-                if (!supplierCache) {
-                  supplierCache = {};
-                }
                 if (supplierCache[supplierId]) {
                   producer = supplierCache[supplierId];
                 } else {
@@ -532,11 +525,6 @@ exports.handler = async (event, context) => {
               const color = props.Color?.select?.name || '';
               const vintage = props.Vintage?.rich_text?.[0]?.plain_text || '';
               const fullName = props['Full Product Name']?.formula?.string || productName;
-              
-              // Log first few products to debug
-              if (matchedCount <= 3) {
-                console.log('Product:', productName.slice(0, 30), '| Region:', region, '| Producer:', producer.slice(0, 20));
-              }
               
               if (productName) {
                 products.push({
