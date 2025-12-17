@@ -383,11 +383,13 @@ exports.handler = async (event, context) => {
           const exportRecord = exportSearch.results[0];
           const exportProps = exportRecord.properties;
           
-          // Get the product IDs from the export record
-          const productIdsStr = exportProps['Product IDs']?.rich_text?.[0]?.plain_text || '';
+          // Get the product IDs from the export record (may be split across multiple rich_text blocks)
+          const richTextArray = exportProps['Product IDs']?.rich_text || [];
+          const productIdsStr = richTextArray.map(rt => rt.plain_text).join('');
           const productIds = productIdsStr.split(',').map(id => id.trim()).filter(Boolean);
           
           console.log('Found', productIds.length, 'product IDs');
+          console.log('First few IDs:', productIds.slice(0, 3));
           
           if (productIds.length === 0) {
             return {
