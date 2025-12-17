@@ -497,16 +497,17 @@ exports.handler = async (event, context) => {
                 }
               }
               
-              // Log first product's Producer Text structure to debug
+              // Log first product's Producer structure to debug
               if (matchedCount <= 1) {
-                console.log('Producer Text type:', props['Producer Text']?.type);
-                console.log('Producer Text value:', JSON.stringify(props['Producer Text']).slice(0, 300));
+                console.log('Producer type:', props.Producer?.type);
+                console.log('Producer value:', JSON.stringify(props.Producer).slice(0, 300));
               }
               
-              const producer = props['Producer Text']?.rollup?.array?.[0]?.title?.[0]?.plain_text ||
-                              props['Producer Text']?.rollup?.array?.[0]?.rich_text?.[0]?.plain_text ||
+              // Producer is a relation - we need to get the related page title
+              // Or use Supplier Text if available
+              const producer = props['Supplier Text']?.formula?.string ||
                               props['Producer Text']?.formula?.string || 
-                              props.Producer?.rollup?.array?.[0]?.title?.[0]?.plain_text || '';
+                              '';
               // Region is a multi-select - get first value
               const region = props.Region?.multi_select?.[0]?.name || 
                             props.Region?.select?.name || '';
