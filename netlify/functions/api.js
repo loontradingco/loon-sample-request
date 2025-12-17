@@ -417,32 +417,14 @@ exports.handler = async (event, context) => {
           
           // Fetch products by page ID - small batches to avoid rate limits
           const products = [];
-          const maxProducts = 50; // Start with just 50 for testing
+          const maxProducts = 500; // Increased limit
           
           const limitedIds = productIds.slice(0, maxProducts);
           console.log('Fetching', limitedIds.length, 'products');
-          console.log('Sample ID:', limitedIds[0]);
           
-          // Fetch just the first one to see properties
-          try {
-            const firstPage = await notionRequest(`/pages/${limitedIds[0]}`, 'GET');
-            console.log('First page properties:', JSON.stringify(Object.keys(firstPage.properties || {})));
-            
-            // Log the title property specifically
-            const props = firstPage.properties;
-            for (const [key, value] of Object.entries(props)) {
-              if (value.type === 'title') {
-                console.log('Title property found:', key, '=', value.title?.[0]?.plain_text);
-              }
-            }
-          } catch (err) {
-            console.log('Error fetching first page:', err.message);
-          }
-          
-          // Fetch sequentially in small groups to avoid rate limits
+          // Fetch in groups of 5 to avoid rate limits
           for (let i = 0; i < limitedIds.length; i += 5) {
             const batchIds = limitedIds.slice(i, i + 5);
-            console.log('Fetching batch', i/5 + 1);
             
             const batchResults = await Promise.all(
               batchIds.map(async (pageId) => {
@@ -452,7 +434,7 @@ exports.handler = async (event, context) => {
                   if (page && page.properties) {
                     const props = page.properties;
                     
-                    // Find the title property dynamically
+                    // Find the title property dynamically (it's "Internal Name")
                     let productName = '';
                     for (const [key, value] of Object.entries(props)) {
                       if (value.type === 'title' && value.title?.[0]?.plain_text) {
@@ -461,21 +443,20 @@ exports.handler = async (event, context) => {
                       }
                     }
                     
-                    const producer = props.Producer?.rollup?.array?.[0]?.title?.[0]?.plain_text ||
-                                    props['Producer Text']?.formula?.string ||
-                                    props.Producer?.rich_text?.[0]?.plain_text || '';
+                    // Get producer from rollup or formula
+                    const producer = props['Producer Text']?.formula?.string ||
+                                    props.Producer?.rollup?.array?.[0]?.title?.[0]?.plain_text || '';
                     const region = props.Region?.select?.name || '';
                     const appellation = props.Appellation?.select?.name || '';
                     const color = props.Color?.select?.name || '';
-                    const vintage = props.Vintage?.rich_text?.[0]?.plain_text || 
-                                   props.Vintage?.number?.toString() || '';
-                    const range = props.Range?.rollup?.array?.[0]?.title?.[0]?.plain_text ||
-                                 props['Range']?.formula?.string || '';
+                    const vintage = props.Vintage?.rich_text?.[0]?.plain_text || '';
+                    const range = props.Range?.rollup?.array?.[0]?.title?.[0]?.plain_text || '';
+                    const fullName = props['Full Product Name']?.formula?.string || productName;
                     
                     if (productName) {
                       return {
                         id: page.id,
-                        name: productName,
+                        name: fullName || productName,
                         producer: producer,
                         region: region,
                         appellation: appellation,
@@ -487,7 +468,6 @@ exports.handler = async (event, context) => {
                   }
                   return null;
                 } catch (pageErr) {
-                  console.log('ERROR fetching', pageId, ':', pageErr.message);
                   return null;
                 }
               })
