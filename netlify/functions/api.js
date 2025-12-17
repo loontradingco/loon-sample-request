@@ -421,6 +421,7 @@ exports.handler = async (event, context) => {
           const maxProducts = 200; // Limit to first 200 products for performance
           
           const limitedIds = productIds.slice(0, maxProducts);
+          console.log('Sample ID format:', limitedIds[0]);
           
           for (let i = 0; i < limitedIds.length; i += concurrentLimit) {
             const batchIds = limitedIds.slice(i, i + concurrentLimit);
@@ -459,13 +460,19 @@ exports.handler = async (event, context) => {
                   }
                   return null;
                 } catch (pageErr) {
-                  console.log('Could not fetch product:', pageId);
+                  console.log('Fetch error for', pageId, ':', pageErr.message);
                   return null;
                 }
               })
             );
             
             products.push(...batchResults.filter(Boolean));
+            
+            // Break early if we have enough
+            if (products.length >= 100) {
+              console.log('Got enough products, stopping early');
+              break;
+            }
           }
           
           console.log('Fetched', products.length, 'products');
